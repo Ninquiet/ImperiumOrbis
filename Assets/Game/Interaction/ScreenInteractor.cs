@@ -7,26 +7,28 @@ public class ScreenInteractor : EntityInteractor
     [SerializeField] private float _maxRayDistance = 100f;
     [SerializeField] private LayerMask _interactionLayerMask = ~0;
     [SerializeField] private InputActionReference _interactInput;
-    [SerializeField] private EntityInteractor _parentInteractor;
 
     private void OnEnable()
     {
         if (_interactInput != null)
+        {
+            _interactInput.action.Enable();
             _interactInput.action.performed += OnInteractPerformed;
-    }
-
-    private void OnDisable()
-    {
-        if (_interactInput != null)
-            _interactInput.action.performed -= OnInteractPerformed;
+        }
     }
 
     private void OnInteractPerformed(InputAction.CallbackContext context)
     {
+        if (!context.ReadValueAsButton())
+            return;
+        
+        if (UIUtility.IsPointingUI())
+            return;
+
         Entity entity = GetInteractableEntity();
-        if (entity != null && _parentInteractor != null)
+        if (entity != null)
         {
-            _parentInteractor.InteractWithEntity(entity);
+            InteractWithEntity(entity);
         }
     }
 
@@ -34,11 +36,24 @@ public class ScreenInteractor : EntityInteractor
     {
         Ray ray = _camera.ScreenPointToRay(Input.mousePosition);
         
-        if (Physics.Raycast(ray, out RaycastHit hit, _maxRayDistance, _interactionLayerMask))
+        RaycastHit[] hits = Physics.RaycastAll(ray, _maxRayDistance, _interactionLayerMask);
+        
+        foreach (RaycastHit hit in hits)
         {
-            return hit.collider.GetComponent<Entity>();
+            Entity entity = hit.collider.GetComponent<Entity>();
+            if (entity != null)
+                return entity;
         }
         
         return null;
+    }
+
+    private void OnDisable()
+    {
+        if (_interactInput != null)
+        {
+            _interactInput.action.performed -= OnInteractPerformed;
+            _interactInput.action.Disable();
+        }
     }
 }
